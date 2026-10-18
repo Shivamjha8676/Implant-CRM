@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Implant CRM — AR Medequip Enterprises</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  </head>
+  <body>
+    <div
+      id="loginOverlay"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: #0e1c30;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      "
+    >
+      <div
+        style="
+          background: #fff;
+          border-radius: 16px;
+          padding: 28px;
+          width: 100%;
+          max-width: 360px;
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        "
+      >
+        <div
+          style="
+            font-family: Manrope, sans-serif;
+            font-weight: 800;
+            font-size: 20px;
+            color: #0e1c30;
+          "
+        >
+          Implant CRM
+        </div>
+        <div style="font-size: 13px; color: #6b7a78; margin: 2px 0 18px">
+          AR Medequip Enterprises — sign in
+        </div>
+        <div class="field" style="margin-bottom: 12px">
+          <label>Email</label
+          ><input
+            type="text"
+            id="loginEmail"
+            autocomplete="username"
+            style="width: 100%"
+          />
+        </div>
+        <div class="field" style="margin-bottom: 12px">
+          <label>Password</label
+          ><input
+            type="password"
+            id="loginPass"
+            autocomplete="current-password"
+            style="
+              width: 100%;
+              padding: 10px 14px;
+              border-radius: 10px;
+              border: 1px solid #e3e8e7;
+              font-size: 14px;
+            "
+          />
+        </div>
+        <div
+          id="loginError"
+          style="
+            color: #dc2626;
+            font-size: 12.5px;
+            min-height: 16px;
+            margin-bottom: 8px;
+          "
+        ></div>
+        <button
+          class="btn btn-teal"
+          id="loginBtn"
+          style="width: 100%; justify-content: center"
+        >
+          Sign in
+        </button>
+      </div>
+    </div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <div class="sidebar-logo">I</div>
+          <div>
+            <div class="sidebar-brand-title">Implant CRM</div>
+            <div class="sidebar-brand-sub">AR Medequip Enterprises</div>
+          </div>
+        </div>
+        <nav class="sidebar-nav">
+          <div class="nav-label">Overview</div>
+          <button class="tab-btn active" data-tab="dashboard">
+            🏠 Dashboard
+          </button>
+          <div class="nav-label">Operations</div>
+          <button class="tab-btn" data-tab="inventory">📦 Inventory</button>
+          <button class="tab-btn" data-tab="crm">
+            👥 CRM <span id="dueCount"></span>
+          </button>
+          <button class="tab-btn" data-tab="sales">💰 Sales History</button>
+          <button class="tab-btn" data-tab="add">➕ Add / Import</button>
+          <button class="tab-btn" data-tab="docs">🧾 PO / Invoice</button>
+          <button class="tab-btn" data-tab="ledger">📒 Ledger</button>
+          <button class="tab-btn" id="logoutBtn" style="margin-top: auto">
+            🚪 Sign out
+          </button>
+        </nav>
+      </aside>
+
+      <div class="main-col">
+        <div class="content-header">
+          <h1 id="pageTitle">Dashboard</h1>
+          <p id="pageSub"></p>
+        </div>
+        <div
+          id="setupBanner"
+          style="
+            display: none;
+            margin: 12px 24px 0;
+            padding: 12px 16px;
+            border-radius: 10px;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 13.5px;
+            font-weight: 600;
+          "
+        >
+          Setup needed: open <b>config.js</b> and paste your Firebase details,
+          then reload. Until then, data will NOT be saved.
+        </div>
+        <main>
+          <!-- DASHBOARD TAB -->
+          <section id="tab-dashboard">
+            <div class="stats">
+              <div class="stat-card navy-card">
+                <div class="stat-num" id="statSkus">0</div>
+                <div class="stat-label">Total SKUs</div>
+              </div>
+              <div class="stat-card accent-card">
+                <div class="stat-num" id="statUnits">0</div>
+                <div class="stat-label">Total Units in Stock</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num" id="statOut" style="color: var(--danger)">
+                  0
+                </div>
+                <div class="stat-label">Low Stock (≤2)</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num" id="statSales">₹0</div>
+                <div class="stat-label">Total Sales Value</div>
+              </div>
+              <div class="stat-card">
+                <div
+                  class="stat-num"
+                  id="statProfit"
+                  style="color: var(--teal-700)"
+                >
+                  ₹0
+                </div>
+                <div class="stat-label">Total Profit</div>
+              </div>
+            </div>
+
+            <div class="card pad-card">
+              <div class="panel-head">
+                <h3>📦 Inventory Overview</h3>
+                <a data-goto="inventory">View all →</a>
+              </div>
+              <div class="mini-stats">
+                <div class="mini-stat">
+                  <b id="dashTotalSkus">0</b><span>Total SKUs</span>
+                </div>
+                <div class="mini-stat">
+                  <b id="dashLowStock" style="color: var(--danger)">0</b
+                  ><span>Low / Out of stock</span>
+                </div>
+                <div class="mini-stat">
+                  <b id="dashDue">0</b><span>Follow-ups due</span>
+                </div>
+              </div>
+              <ul
+                class="dash-row"
+                id="dashLowList"
+                style="margin-top: 14px"
+              ></ul>
+            </div>
+
+            <div class="card pad-card panel-green" style="margin-top: 16px">
+              <div class="panel-head">
+                <h3>📇 Contact Book</h3>
+                <a data-goto="crm">View all →</a>
+              </div>
+              <div class="mini-stats">
+                <div class="mini-stat">
+                  <b id="dashCustomers">0</b><span>Customers / Doctors</span>
+                </div>
+                <div class="mini-stat">
+                  <b id="dashSuppliers">0</b><span>Suppliers</span>
+                </div>
+                <div class="mini-stat">
+                  <b id="dashHavePhone">0</b><span>Have phone</span>
+                </div>
+                <div class="mini-stat">
+                  <b id="dashHaveAddr">0</b><span>Have address</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card pad-card" style="margin-top: 16px">
+              <div class="panel-head">
+                <h3>🧾 Recent Documents</h3>
+                <a data-goto="docs">View all →</a>
+              </div>
+              <ul class="dash-row" id="dashDocsList"></ul>
+            </div>
+          </section>
+
+          <!-- INVENTORY TAB -->
+          <section id="tab-inventory" style="display: none">
+            <div class="toolbar">
+              <div class="search-wrap">
+                <span>🔍</span
+                ><input
+                  type="text"
+                  id="searchBox"
+                  placeholder="Search by code or description..."
+                />
+              </div>
+              <select id="materialFilter">
+                <option value="">All Materials</option>
+              </select>
+              <button class="btn btn-outline" id="downloadBtn">
+                ⬇️ Download Excel (.xlsx)
+              </button>
+            </div>
+            <div class="card">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr id="invHeadRow"></tr>
+                  </thead>
+                  <tbody id="invBody"></tbody>
+                </table>
+              </div>
+              <div class="empty" id="invEmpty" style="display: none">
+                No items match your search.
+              </div>
+            </div>
+          </section>
+
+          <!-- CRM TAB -->
+          <section id="tab-crm" style="display: none">
+            <div class="toolbar">
+              <div class="search-wrap">
+                <span>🔍</span
+                ><input
+                  type="text"
+                  id="crmSearch"
+                  placeholder="Search name, phone, hospital, city..."
+                />
+              </div>
+              <select id="crmStatus">
+                <option value="">All Status</option>
+                <option value="lead">Lead</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <button class="btn btn-outline" id="crmImportBtn">
+                ⬆️ Import Excel
+              </button>
+              <input
+                type="file"
+                id="crmFile"
+                accept=".xlsx,.xls,.csv"
+                style="display: none"
+              />
+              <button class="btn btn-teal" id="crmAddBtn">
+                + Add Customer
+              </button>
+            </div>
+            <div class="card">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Phone</th>
+                      <th>Hospital / Clinic</th>
+                      <th>City</th>
+                      <th>Status</th>
+                      <th>Next Follow-up</th>
+                      <th>Last Note</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="crmBody"></tbody>
+                </table>
+              </div>
+              <div class="empty" id="crmEmpty" style="display: none">
+                No customers yet — click "+ Add Customer".
+              </div>
+            </div>
+          </section>
+
+          <!-- SALES TAB  -->
+          <section id="tab-sales" style="display: none">
+            <div class="card pad-card">
+              <div class="section-title">
+                Monthly Collection Summary — amount due from partner
+              </div>
+              <div class="section-sub">
+                Based on each month's Used/Sold amount (at RP price) — how much
+                to collect from the partner.
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th>Units Sold</th>
+                      <th>Cost (DP total)</th>
+                      <th>To Collect (RP total)</th>
+                      <th>Your Profit</th>
+                    </tr>
+                  </thead>
+                  <tbody id="monthlyBody"></tbody>
+                </table>
+              </div>
+              <div class="empty" id="monthlyEmpty" style="display: none">
+                No sales yet this period.
+              </div>
+            </div>
+            <div class="filter-chips" style="margin-top: 16px">
+              <button class="chip-btn active" data-filter="all">
+                All Activity
+              </button>
+              <button class="chip-btn" data-filter="sale">Used / Sold</button>
+              <button class="chip-btn" data-filter="restock">
+                Stock Added
+              </button>
+              <button
+                class="btn btn-outline btn-sm"
+                id="downloadReportBtn"
+                style="margin-left: auto"
+              >
+                ⬇️ Download Sales Report (.xlsx)
+              </button>
+            </div>
+            <div class="card">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Code</th>
+                      <th>Description</th>
+                      <th>Qty</th>
+                      <th>DP</th>
+                      <th>RP</th>
+                      <th>Amount</th>
+                      <th>Profit</th>
+                      <th>Handled By</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="salesBody"></tbody>
+                </table>
+              </div>
+              <div class="empty" id="salesEmpty" style="display: none">
+                No activity recorded yet.
+              </div>
+            </div>
+          </section>
+
+          <!-- ADD / IMPORT TAB  -->
+          <section id="tab-add" style="display: none">
+            <div class="card pad-card">
+              <div class="section-title">Add a new item</div>
+              <div class="section-sub">
+                RP is auto-filled at DP + 50% — you can override it.
+              </div>
+              <form class="grid" id="addForm">
+                <div class="field">
+                  <label>Code</label
+                  ><input
+                    type="text"
+                    id="f_code"
+                    required
+                    placeholder="e.g. 6050"
+                  />
+                </div>
+                <div class="field">
+                  <label>Material</label
+                  ><input
+                    type="text"
+                    id="f_material"
+                    required
+                    placeholder="e.g. SS316L"
+                  />
+                </div>
+                <div class="field span2">
+                  <label>Description</label
+                  ><input
+                    type="text"
+                    id="f_desc"
+                    required
+                    placeholder="Item description"
+                  />
+                </div>
+                <div class="field">
+                  <label>DP (Dealer Price)</label
+                  ><input
+                    type="number"
+                    id="f_dp"
+                    required
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div class="field">
+                  <label>RP (Retail Price)</label
+                  ><input
+                    type="number"
+                    id="f_rp"
+                    min="0"
+                    step="0.01"
+                    placeholder="Auto"
+                  />
+                </div>
+                <div class="field">
+                  <label>MRP</label
+                  ><input
+                    type="number"
+                    id="f_mrp"
+                    required
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div class="field">
+                  <label>Opening Stock</label
+                  ><input
+                    type="number"
+                    id="f_stock"
+                    required
+                    min="0"
+                    step="1"
+                    value="0"
+                  />
+                </div>
+                <div class="field span2">
+                  <button class="btn btn-teal" type="submit">Add Item</button>
+                </div>
+              </form>
+            </div>
+            <div class="card pad-card">
+              <div class="section-title">Bulk import from Excel / CSV</div>
+              <div class="section-sub">
+                Columns expected: Code, Description, Material, DP, RP, MRP,
+                Stock. Matching codes are updated; new codes are added.
+              </div>
+              <label class="import-drop" for="fileInput"
+                >📄 Click to choose an .xlsx or .csv file</label
+              >
+              <input
+                type="file"
+                id="fileInput"
+                accept=".xlsx,.xls,.csv"
+                style="display: none"
+              />
+            </div>
+          </section>
+
+          <!-- PO / INVOICE TAB  -->
+          <section id="tab-docs" style="display: none">
+            <div class="filter-chips">
+              <button class="chip-btn active" data-doctype="po">
+                Purchase Order
+              </button>
+              <button class="chip-btn" data-doctype="invoice">Invoice</button>
+            </div>
+            <div class="card pad-card">
+              <div class="section-title" id="docBuilderTitle">
+                New Purchase Order
+              </div>
+              <div class="section-sub" id="docBuilderSub">
+                Create a PO to order stock from the company — uses the DP price.
+              </div>
+              <form class="grid">
+                <div class="field">
+                  <label id="docPartyLabel">Supplier</label>
+                  <div style="display: flex; gap: 8px">
+                    <input
+                      type="text"
+                      id="doc_party"
+                      list="doc_partyList"
+                      placeholder="Name"
+                      style="flex: 1"
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-outline btn-sm"
+                      id="docSaveParty"
+                    >
+                      + Save detail
+                    </button>
+                  </div>
+                  <datalist id="doc_partyList"></datalist>
+                  <div
+                    style="
+                      font-size: 12px;
+                      color: var(--teal-700);
+                      margin-top: 5px;
+                      min-height: 15px;
+                    "
+                    id="doc_partyPreview"
+                  ></div>
+                </div>
+                <div class="field">
+                  <label>Date</label><input type="date" id="doc_date" />
+                </div>
+                <div class="field">
+                  <label>GST</label>
+                  <select id="doc_gstType">
+                    <option value="none">No GST</option>
+                    <option value="intra">Intra-state (CGST+SGST)</option>
+                    <option value="inter">Inter-state (IGST)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>GST Rate %</label
+                  ><input
+                    type="number"
+                    id="doc_gstRate"
+                    value="18"
+                    min="0"
+                    step="0.1"
+                  />
+                </div>
+                <div class="field">
+                  <label>Your GSTIN (optional)</label
+                  ><input
+                    type="text"
+                    id="doc_myGstin"
+                    placeholder="e.g. 24ABCDE1234F1Z5"
+                  />
+                </div>
+                <div class="field">
+                  <label id="docPartyGstLabel">Supplier GSTIN (optional)</label
+                  ><input
+                    type="text"
+                    id="doc_partyGstin"
+                    placeholder="If known"
+                  />
+                </div>
+                <div class="field invoice-only">
+                  <label>Your Address (for Tax Invoice header)</label
+                  ><textarea
+                    id="doc_myAddress"
+                    style="min-height: 44px"
+                    placeholder="Shop/Office address, City, Pincode"
+                  ></textarea>
+                </div>
+                <div class="field invoice-only">
+                  <label>Your State &amp; Code</label
+                  ><input
+                    type="text"
+                    id="doc_myState"
+                    placeholder="e.g. Gujarat, Code: 24"
+                  />
+                </div>
+                <div class="field invoice-only">
+                  <label>Your PAN (optional)</label
+                  ><input
+                    type="text"
+                    id="doc_myPan"
+                    placeholder="e.g. ABCDE1234F"
+                  />
+                </div>
+                <div class="field invoice-only">
+                  <label>HSN/SAC Code (for items)</label
+                  ><input type="text" id="doc_hsn" placeholder="e.g. 9021" />
+                </div>
+                <div class="field span2 invoice-only">
+                  <label>Bank Details (printed on invoice)</label>
+                  <div
+                    style="
+                      display: grid;
+                      grid-template-columns: 1fr 1fr;
+                      gap: 10px;
+                    "
+                  >
+                    <input
+                      type="text"
+                      id="doc_bankName"
+                      placeholder="Bank Name"
+                    />
+                    <input
+                      type="text"
+                      id="doc_bankAcc"
+                      placeholder="A/c Holder Name"
+                    />
+                    <input
+                      type="text"
+                      id="doc_bankAccNo"
+                      placeholder="A/c No."
+                    />
+                    <input
+                      type="text"
+                      id="doc_bankIfsc"
+                      placeholder="IFSC &amp; Branch"
+                    />
+                  </div>
+                </div>
+                <div class="field span2">
+                  <label>Notes / Terms (optional)</label
+                  ><textarea id="doc_notes" style="min-height: 50px"></textarea>
+                </div>
+              </form>
+              <div
+                class="line-row"
+                style="
+                  margin-top: 14px;
+                  grid-template-columns: 2fr 90px 110px auto;
+                "
+              >
+                <div class="field">
+                  <label>Item</label
+                  ><select id="doc_itemSelect"></select>
+                </div>
+                <div class="field">
+                  <label>Qty</label
+                  ><input
+                    type="number"
+                    id="doc_qty"
+                    min="1"
+                    step="1"
+                    value="1"
+                  />
+                </div>
+                <div class="field">
+                  <label>Unit Price</label
+                  ><input type="number" id="doc_price" min="0" step="0.01" />
+                </div>
+                <button type="button" class="btn btn-outline" id="docAddLine">
+                  + Add Line
+                </button>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>Description</th>
+                      <th>Qty</th>
+                      <th>Unit Price</th>
+                      <th>Amount</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="docLinesBody"></tbody>
+                </table>
+              </div>
+              <div class="empty" id="docLinesEmpty">No items added yet.</div>
+              <div class="doc-total" id="docTotal">Total: ₹0</div>
+              <button
+                class="btn btn-teal"
+                id="docSaveBtn"
+                style="width: 100%; justify-content: center"
+              >
+                💾 Save &amp; Download PDF
+              </button>
+            </div>
+
+            <div class="card" style="margin-top: 16px">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Number</th>
+                      <th>Date</th>
+                      <th id="docPartyHead">Supplier</th>
+                      <th>Items</th>
+                      <th>Total</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="docHistBody"></tbody>
+                </table>
+              </div>
+              <div class="empty" id="docHistEmpty" style="display: none">
+                No documents created yet.
+              </div>
+            </div>
+          </section>
+
+          <!-- LEDGER TAB  -->
+          <section id="tab-ledger" style="display: none">
+            <div class="filter-chips">
+              <button class="chip-btn active" data-ptype="customer">
+                Customers
+              </button>
+              <button class="chip-btn" data-ptype="supplier">Suppliers</button>
+            </div>
+            <div class="card pad-card">
+              <form class="grid">
+                <div class="field">
+                  <label id="ledgerPartyLabel">Select Customer</label>
+                  <select id="ledger_party"></select>
+                </div>
+                <div class="field">
+                  <label id="ledgerBalLabel">Balance Due</label>
+                  <div
+                    class="stat-num"
+                    id="ledgerBalance"
+                    style="padding-top: 8px"
+                  >
+                    ₹0
+                  </div>
+                </div>
+              </form>
+              <div
+                class="line-row"
+                style="
+                  margin-top: 6px;
+                  grid-template-columns: 110px 150px 1fr auto;
+                "
+              >
+                <div class="field">
+                  <label>Date</label><input type="date" id="pay_date" />
+                </div>
+                <div class="field">
+                  <label>Amount</label
+                  ><input type="number" id="pay_amount" min="0" step="0.01" />
+                </div>
+                <div class="field">
+                  <label>Mode / Note</label
+                  ><input
+                    type="text"
+                    id="pay_note"
+                    placeholder="Cash / Bank / UPI / Cheque, reference etc."
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-teal"
+                  id="paySaveBtn"
+                  style="height: 40px"
+                >
+                  + Record Payment
+                </button>
+              </div>
+            </div>
+            <div class="card" style="margin-top: 16px">
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Particulars</th>
+                      <th>Debit</th>
+                      <th>Credit</th>
+                      <th>Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ledgerBody"></tbody>
+                </table>
+              </div>
+              <div class="empty" id="ledgerEmpty" style="display: none">
+                Select a party — their ledger will show here.
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="modal-back" id="modalBack">
+      <div class="modal">
+        <h3 id="modalTitle">Quantity</h3>
+        <p id="modalSub"></p>
+        <input type="number" id="modalQty" min="1" step="1" value="1" />
+        <input
+          type="text"
+          id="modalBy"
+          class="by-input"
+          placeholder="Handled by (optional)"
+        />
+        <div class="row">
+          <button class="btn btn-outline" id="modalCancel">Cancel</button>
+          <button class="btn btn-teal" id="modalConfirm">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-back" id="editBack">
+      <div class="modal wide">
+        <h3>Edit Item</h3>
+        <p id="editSub"></p>
+        <div class="field">
+          <label>Description</label><input type="text" id="e_desc" />
+        </div>
+        <div class="field">
+          <label>Material</label><input type="text" id="e_material" />
+        </div>
+        <div class="field">
+          <label>DP (Dealer Price)</label
+          ><input type="number" id="e_dp" min="0" step="0.01" />
+        </div>
+        <div class="field">
+          <label>RP (Retail Price)</label
+          ><input type="number" id="e_rp" min="0" step="0.01" />
+        </div>
+        <div class="field">
+          <label>MRP</label
+          ><input type="number" id="e_mrp" min="0" step="0.01" />
+        </div>
+        <div class="row" style="margin-top: 16px">
+          <button class="btn btn-outline" id="editCancel">Cancel</button>
+          <button class="btn btn-teal" id="editConfirm">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-back" id="supBack">
+      <div class="modal wide">
+        <h3>Save Supplier Detail</h3>
+        <p>&nbsp;</p>
+        <div class="field">
+          <label>Name</label><input type="text" id="s_name" />
+        </div>
+        <div class="field">
+          <label>Address</label
+          ><textarea id="s_address" style="min-height: 60px"></textarea>
+        </div>
+        <div class="field">
+          <label>Phone</label><input type="text" id="s_phone" />
+        </div>
+        <div class="field">
+          <label>Email</label><input type="text" id="s_email" />
+        </div>
+        <div class="field">
+          <label>GSTIN (optional)</label><input type="text" id="s_gstin" />
+        </div>
+        <div class="row" style="margin-top: 16px">
+          <button class="btn btn-outline" id="supCancel">Cancel</button>
+          <button class="btn btn-teal" id="supSave">Save Supplier</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-back" id="confirmBack">
+      <div class="modal">
+        <h3 id="confirmTitle">Are you sure?</h3>
+        <p id="confirmSub"></p>
+        <div class="row">
+          <button class="btn btn-outline" id="confirmCancel">Cancel</button>
+          <button class="btn btn-teal" id="confirmOk">Yes, continue</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-back" id="crmBack">
+      <div class="modal wide">
+        <h3 id="crmTitle">Add Customer</h3>
+        <p>&nbsp;</p>
+        <div class="field">
+          <label>Name</label><input type="text" id="c_name" />
+        </div>
+        <div class="field">
+          <label>Phone</label><input type="text" id="c_phone" />
+        </div>
+        <div class="field">
+          <label>Hospital / Clinic</label><input type="text" id="c_org" />
+        </div>
+        <div class="field">
+          <label>City</label><input type="text" id="c_city" />
+        </div>
+        <div class="field">
+          <label>Full Address (for invoice)</label
+          ><textarea id="c_address" style="min-height: 44px"></textarea>
+        </div>
+        <div class="field">
+          <label>GSTIN (optional)</label><input type="text" id="c_gstin" />
+        </div>
+        <div class="field">
+          <label>Status</label
+          ><select id="c_status">
+            <option value="lead">Lead</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Next Follow-up Date</label><input type="date" id="c_next" />
+        </div>
+        <div class="field">
+          <label>Notes</label><textarea id="c_notes"></textarea>
+        </div>
+        <div class="row" style="margin-top: 16px">
+          <button class="btn btn-outline" id="crmCancel">Cancel</button>
+          <button class="btn btn-teal" id="crmSave">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-back" id="fuBack">
+      <div class="modal wide">
+        <h3>Follow-up</h3>
+        <p id="fuSub"></p>
+        <div class="fu-history" id="fuHistory"></div>
+        <div class="field">
+          <label>Today's note / conversation</label
+          ><textarea id="f_note"></textarea>
+        </div>
+        <div class="field">
+          <label>Next Follow-up Date</label><input type="date" id="f_next" />
+        </div>
+        <div class="field">
+          <label>Status</label
+          ><select id="f_status">
+            <option value="lead">Lead</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="row" style="margin-top: 16px">
+          <button class="btn btn-outline" id="fuCancel">Cancel</button>
+          <button class="btn btn-teal" id="fuSave">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+
+    <footer class="site-footer">
+      <div>© 2026 All Rights Reserved</div>
+      <div class="footer-name">Designed &amp; Developed by Shivam Kumar</div>
+    </footer>
+  </body>
+</html>
